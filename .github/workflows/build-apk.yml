@@ -81,8 +81,15 @@ jobs:
     - name: Get Version Info
       id: version
       run: |
-        VERSION_NAME=$(grep "versionName" app/build.gradle | grep -o '"[^"]*"' | tr -d '"')
-        VERSION_CODE=$(grep "versionCode" app/build.gradle | grep -o '[0-9]*')
+        # 检查 app/build.gradle.kts 文件是否存在
+        if [ -f "app/build.gradle.kts" ]; then
+          VERSION_NAME=$(grep "versionName" app/build.gradle.kts | grep -o '"[^"]*"' | tr -d '"' || echo "unknown")
+          VERSION_CODE=$(grep "versionCode" app/build.gradle.kts | grep -o '[0-9]*' || echo "0")
+        else
+          # 如果找不到版本文件，使用默认值
+          VERSION_NAME="unknown"
+          VERSION_CODE="0"
+        fi
         echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
         echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_OUTPUT
         echo "COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
