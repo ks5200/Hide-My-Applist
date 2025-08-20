@@ -69,12 +69,13 @@ jobs:
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
+        GRADLE_OPTS: -Xmx6g -XX:MaxMetaspaceSize=1g
+        JAVA_OPTS: -Xmx6g
       run: |
         if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "app/release.jks" ]; then
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --stacktrace -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --info
         else
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --info
         fi
 
     - name: Get Version Info
