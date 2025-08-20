@@ -93,6 +93,10 @@ jobs:
         echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
         echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_OUTPUT
         echo "COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+        # 验证输出值
+        echo "Version Name: $VERSION_NAME"
+        echo "Version Code: $VERSION_CODE"
+        echo "Commit SHA: $(echo ${{ github.sha }} | cut -c1-7)"
 
     - name: Rename APK Files
       run: |
@@ -122,7 +126,7 @@ jobs:
       if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
       uses: softprops/action-gh-release@v1
       with:
-        tag_name: v${{ steps.version.outputs.VERSION_NAME }}
+        tag_name: v${{ steps.version.outputs.VERSION_NAME }}-${{ steps.version.outputs.COMMIT_SHA }}
         name: Hide-My-Applist v${{ steps.version.outputs.VERSION_NAME }}
         body: |
           ## Hide-My-Applist v${{ steps.version.outputs.VERSION_NAME }}
