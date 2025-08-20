@@ -69,6 +69,7 @@ jobs:
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        GRADLE_OPTS: -Xmx4g -XX:MaxMetaspaceSize=512m
       run: |
         if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "app/release.jks" ]; then
           ./gradlew assembleRelease --stacktrace
