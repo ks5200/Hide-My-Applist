@@ -1,0 +1,128 @@
+name: Build Hide-My-Applist
+
+on:
+  push:
+    branches: [ master, main, dev ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Cache Gradle dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Decode Keystore
+      if: github.event_name != 'pull_request'
+      env:
+        KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+      run: |
+        if [ -n "$KEYSTORE" ]; then
+          echo "$KEYSTORE" | base64 -d > app/release.jks
+        fi
+
+    - name: Build Project
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        if [ -n "$KEYSTORE_PASSWORD" ] && [ -f "app/release.jks" ]; then
+          ./gradlew assembleRelease --stacktrace
+        else
+          ./gradlew assembleDebug --stacktrace
+        fi
+
+    - name: Get Version Info
+      id: version
+      run: |
+        VERSION_NAME=$(grep "versionName" app/build.gradle | grep -o '"[^"]*"' | tr -d '"')
+        VERSION_CODE=$(grep "versionCode" app/build.gradle | grep -o '[0-9]*')
+        echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
+        echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_OUTPUT
+        echo "COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+    - name: Rename APK Files
+      run: |
+        mkdir -p apks
+        if [ -f "app/build/outputs/apk/debug/app-debug.apk" ]; then
+          mv app/build/outputs/apk/debug/app-debug.apk apks/Hide-My-Applist-v${{ steps.version.outputs.VERSION_NAME }}-${{ steps.version.outputs.COMMIT_SHA }}-debug.apk
+        fi
+        if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
+          mv app/build/outputs/apk/release/app-release.apk apks/Hide-My-Applist-v${{ steps.version.outputs.VERSION_NAME }}-${{ steps.version.outputs.COMMIT_SHA }}-release.apk
+        fi
+
+    - name: Upload Debug APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: Hide-My-Applist-debug
+        path: apks/*debug.apk
+        if-no-files-found: ignore
+
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: Hide-My-Applist-release
+        path: apks/*release.apk
+        if-no-files-found: ignore
+
+    - name: Create Release
+      if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.version.outputs.VERSION_NAME }}
+        name: Hide-My-Applist v${{ steps.version.outputs.VERSION_NAME }}
+        body: |
+          ## Hide-My-Applist v${{ steps.version.outputs.VERSION_NAME }}
+          
+          Automated release build.
+          
+          ### Changes
+          - See commit history for detailed changes
+          
+          ### Download
+          - Debug APK: For testing purposes
+          - Release APK: For production use
+        files: |
+          apks/*.apk
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Cleanup
+      if: always()
+      run: |
+        if [ -f "app/release.jks" ]; then
+          rm app/release.jks
+        fi
