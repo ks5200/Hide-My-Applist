@@ -81,18 +81,30 @@ jobs:
     - name: Get Version Info
       id: version
       run: |
-        # 检查 app/build.gradle.kts 文件是否存在
+        # 使用更精确的正则表达式来匹配 versionName 和 versionCode
         if [ -f "app/build.gradle.kts" ]; then
-          VERSION_NAME=$(grep "versionName" app/build.gradle.kts | grep -o '"[^"]*"' | tr -d '"' || echo "unknown")
-          VERSION_CODE=$(grep "versionCode" app/build.gradle.kts | grep -o '[0-9]*' || echo "0")
+          # 匹配类似 versionName = "3.3.4" 或 versionName = "3.3.4-beta" 的行
+          VERSION_NAME=$(grep -E 'versionName\s*=\s*"[^"]*"' app/build.gradle.kts | grep -o '"[^"]*"' | tr -d '"' | head -1 || echo "unknown")
+          # 匹配类似 versionCode = 33400 或 versionCode = 123 的行
+          VERSION_CODE=$(grep -E 'versionCode\s*=\s*[0-9]+' app/build.gradle.kts | grep -o '[0-9]*' | head -1 || echo "0")
         else
-          # 如果找不到版本文件，使用默认值
           VERSION_NAME="unknown"
           VERSION_CODE="0"
         fi
+        
+        # 如果提取失败，使用默认值
+        if [ -z "$VERSION_NAME" ] || [ "$VERSION_NAME" = "" ]; then
+          VERSION_NAME="unknown"
+        fi
+        
+        if [ -z "$VERSION_CODE" ] || [ "$VERSION_CODE" = "" ]; then
+          VERSION_CODE="0"
+        fi
+        
         echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
         echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_OUTPUT
         echo "COMMIT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+        
         # 验证输出值
         echo "Version Name: $VERSION_NAME"
         echo "Version Code: $VERSION_CODE"
